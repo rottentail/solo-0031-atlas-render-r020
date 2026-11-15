@@ -120,7 +120,7 @@ func (s *Service) Purge(id string) error {
 	})
 }
 func (s *Service) Artifact(id string) (model.Artifact, error) {
-	a, ok := s.Store.Read().Artifacts[id]
+	a, ok := s.Store.Artifact(id)
 	if !ok {
 		return a, model.Missing("artifact not found")
 	}

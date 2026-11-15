@@ -58,6 +58,27 @@ func (s *Store) Close() error {
 	return e
 }
 func (s *Store) Read() model.State { s.mu.RLock(); defer s.mu.RUnlock(); return model.Clone(s.state) }
+
+// Artifact transfers ownership of exactly one committed result record to the
+// caller. It copies that record's PNG bytes and nothing else, so the cost of a
+// download or a pixel comparison grows with the results being read rather than
+// with all scenes, assets, snapshots and pinned job payloads in the state.
+//
+// The state lock is held only while the record and its bytes are copied. Slow
+// consumers (network writes, PNG decoding, pixel comparison) run after it has
+// been released, so Purge and other commits never wait for them. The returned
+// bytes are detached: a later purge can replace or clear the stored record
+// without changing bytes already handed to a reader.
+func (s *Store) Artifact(id string) (model.Artifact, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	a, ok := s.state.Artifacts[id]
+	if !ok {
+		return model.Artifact{}, false
+	}
+	a.PNG = append([]byte(nil), a.PNG...)
+	return a, true
+}
 func (s *Store) Update(fn func(*model.State) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
